@@ -51,3 +51,9 @@ Registro cronológico de cada paso, decisión y cambio. Se actualiza en cada ent
 - Mientras no exista el proyecto Supabase, la página publicada abre en **modo demostración**.
 
 **Siguiente paso:** crear la cuenta Supabase de Volver → aplicar el esquema → crear usuarios → llenar `config.js` → pruebas con el equipo → dominio propio.
+
+### Avance 19:50
+- Código subido a `main` (autor: Soporte TI, correo privado de GitHub).
+- **GitHub Pages activo**: https://zanetti10.github.io/restaurante-volver/ (abre en modo demostración hasta configurar Supabase).
+- Descripción del repositorio corregida y enlace al sitio agregado.
+- Pendiente: cuenta Supabase de Volver (la crea Volver con su correo e invita a Soporte TI) → Soporte TI crea el proyecto, aplica `001_esquema.sql`, crea usuarios y llena `config.js`.
