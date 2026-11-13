@@ -14,16 +14,22 @@ Responsable: Soporte TI. Tiempo estimado: 1 a 2 horas.
 3. Verificar en **Table Editor**: perfiles, clientes, reservas, anticipos, mesas, bonos, cartera, auditoria.
 4. Verificar en **Storage**: bucket `soportes` (privado).
 
-## Paso 3 · Usuarios
-1. Authentication → **Sign In / Providers** → Email: dejar activo; desactivar "Allow new users to sign up" (solo Gerencia crea usuarios).
-2. Authentication → Users → **Add user → Create new user**: correo y contraseña temporal de cada persona. Marcar "Auto confirm user".
-3. Crear su perfil en SQL Editor (repetir por persona, cambiando correo, nombre y rol):
-   ```sql
-   insert into public.perfiles(user_id, nombre, rol)
-   select id, 'Gerencia', 'admin' from auth.users where email = 'gerencia@correo.com';
+## Paso 3 · Usuarios (sin correo)
+Las personas entran con **usuario y contraseña**, sin correo. Internamente Supabase guarda cada usuario como `usuario@usuarios.volver.app` (dominio interno que nunca recibe correos).
+
+1. Authentication → **Sign In / Providers** → Email: dejar activo; **desactivar "Allow new users to sign up"** y **desactivar "Confirm email"**.
+2. Desplegar la función segura de usuarios:
+   - Con la CLI: `supabase functions deploy usuarios` (desde la carpeta del repositorio), o
+   - Panel de Supabase → Edge Functions → Deploy new function → nombre `usuarios` → pegar `supabase/functions/usuarios/index.ts`.
+3. Crear el **primer usuario (Administrador TI)** llamando la acción `inicial` (solo funciona mientras no exista ningún usuario):
+   ```bash
+   curl -X POST https://<proyecto>.supabase.co/functions/v1/usuarios \
+     -H "Authorization: Bearer <anon key>" -H "Content-Type: application/json" \
+     -d '{"accion":"inicial","usuario":"administrador","nombre":"Administrador","clave":"<temporal>"}'
    ```
-   Roles: `reservas`, `caja`, `tesoreria`, `admin`.
-4. Después, Gerencia puede cambiar área o desactivar usuarios desde la pantalla **Usuarios** de la aplicación.
+   La contraseña temporal se entrega por un canal privado (nunca en el repositorio). Al entrar, el sistema obliga a cambiarla.
+4. Los demás usuarios se crean desde la app: **TI → Crear usuario** (usuario, nombre/cargo y rol). La app genera la contraseña temporal y la muestra una sola vez.
+5. Desde TI también se cambia el rol, se desactiva un usuario (queda bloqueado para entrar) y se restablece la contraseña.
 
 ## Paso 4 · Conectar la aplicación
 1. Supabase → Project Settings → **API**: copiar `Project URL` y la llave **anon / publishable**.
@@ -44,7 +50,8 @@ Responsable: Soporte TI. Tiempo estimado: 1 a 2 horas.
 3. Actualizar el Site URL de Supabase al dominio nuevo.
 
 ## Paso 7 · Pruebas con el equipo
-- [ ] Cada persona entra con su usuario y ve su área.
+- [ ] El Administrador (TI) entra, cambia su contraseña temporal y crea los usuarios de cada área.
+- [ ] Cada persona entra con su usuario, cambia su contraseña y solo ve los módulos de su rol.
 - [ ] Reservas crea una reserva con factura a nombre propio, torta y anticipo con soporte.
 - [ ] Tesorería verifica el anticipo (recibo de caja).
 - [ ] Caja busca al cliente, ve la alerta y aplica el anticipo en factura.

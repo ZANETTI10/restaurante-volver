@@ -13,7 +13,7 @@ Aplicación web interna de **Volver** (huerta y cocina de montaña, Envigado) pa
 | **Bonos** | Vendidos y de cortesía, código único, redención completa con trazabilidad | Caja / Gerencia |
 | **Clientes** | Base de clientes con sus datos de facturación electrónica | Todas |
 | **Contabilidad** | Pendientes de SIESA: pagos por verificar, ajustes, terceros por crear, devoluciones | Tesorería y contabilidad |
-| **Usuarios** | Activar usuarios y asignar su área (solo en modo real) | Gerencia |
+| **TI** | Crear y administrar usuarios sin correo (usuario + contraseña), roles y permisos | Administrador (TI) |
 
 Además incluye un **formulario público** (`#registro`) para que el cliente llene sus propios datos de facturación y acepte el aviso de factura.
 
@@ -28,6 +28,7 @@ Además incluye un **formulario público** (`#registro`) para que el cliente lle
 index.html                  Aplicación completa (HTML + CSS + JS, sin compilación)
 config.js                   Conexión a Supabase (vacío = modo demostración)
 supabase/001_esquema.sql    Tablas, roles, seguridad (RLS), auditoría, Storage y vistas
+supabase/functions/usuarios Función segura para crear y administrar usuarios
 docs/                       Documentación del proyecto
 ```
 

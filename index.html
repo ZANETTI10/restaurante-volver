@@ -195,6 +195,11 @@ label.f>span.errmsg{font-family:var(--sans);font-size:12.5px;letter-spacing:0;te
 .tabs button.on{color:var(--olive);border-bottom-color:var(--pink)}
 .tortabox{border:1px solid var(--line);background:var(--white);padding:12px 14px}
 .tortabox>.row{justify-content:space-between}
+.rolpick{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;margin-top:6px}
+.rolopt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);background:var(--white);padding:12px;cursor:pointer}
+.rolopt input{margin-top:3px;accent-color:var(--olive);width:18px;height:18px;flex:none}
+.rolopt b{font-weight:500;color:var(--olive)}
+.rolopt.on{border-color:var(--olive);box-shadow:inset 0 0 0 1px var(--olive);background:#FAFBF5}
 .sopwait{min-height:40px}
 .drop{border:1px dashed var(--sage);background:var(--white);padding:16px;text-align:center;cursor:pointer;color:var(--warm);font-size:13.5px;display:block}
 .drop:hover{border-color:var(--olive);color:var(--olive)}
@@ -272,8 +277,20 @@ const ROLES = [
   {id:'reservas', nombre:'Reservas', persona:'Encargada de reservas', d:'Toma reservas, pide datos de facturación y registra anticipos con su soporte', ic:'cal', inicio:'inicio'},
   {id:'caja', nombre:'Caja', persona:'Cajero(a) de turno', d:'Factura en SIESA con aviso de anticipos y bonos del cliente', ic:'cash', inicio:'caja'},
   {id:'tesoreria', nombre:'Tesorería y contabilidad', persona:'Tesorería y contador(a)', d:'Verifica pagos, recibos de caja, ajustes contables y terceros', ic:'book', inicio:'contabilidad'},
-  {id:'admin', nombre:'Gerencia / Administración', persona:'Gerencia, líderes y administradora', d:'Ve todo: tablero de eventos, cartera y cortesías', ic:'star', inicio:'inicio'},
+  {id:'admin', nombre:'Gerencia / Administración', persona:'Gerencia, líderes y administradora', d:'Ve todo: tablero de eventos, cartera y cortesías', ic:'star', inicio:'eventos'},
+  {id:'ti', nombre:'Administrador (TI)', persona:'Soporte TI', d:'Acceso total y sección TI: crea y administra los usuarios', ic:'shield', inicio:'ti'},
 ];
+/* Qué maneja cada rol: módulos que ve en el menú y puede abrir */
+const MODULOS = {
+  reservas:  ['inicio','reservas','eventos','mesas','anticipos','bonos','clientes'],
+  caja:      ['inicio','caja','mesas','anticipos','bonos','clientes'],
+  tesoreria: ['inicio','contabilidad','anticipos','cartera','eventos','bonos','clientes'],
+  admin:     ['inicio','reservas','eventos','mesas','caja','anticipos','cartera','bonos','clientes','contabilidad'],
+  ti:        ['inicio','reservas','eventos','mesas','caja','anticipos','cartera','bonos','clientes','contabilidad','ti'],
+};
+const NOMBRE_MOD = {inicio:'Inicio',reservas:'Reservas',eventos:'Eventos',mesas:'Mesas',caja:'Caja',anticipos:'Anticipos',cartera:'Cartera',bonos:'Bonos',clientes:'Clientes',contabilidad:'Contabilidad',ti:'TI · Usuarios'};
+const PERMISOS_EXTRA = {reservas:'Asigna mesas a las reservas', caja:'Aplica anticipos y redime bonos al facturar', tesoreria:'Verifica pagos, registra ajustes y crea terceros en SIESA', admin:'Autoriza cortesías y puede borrar registros', ti:'Crea, edita, desactiva usuarios y restablece contraseñas'};
+const puede = m => (MODULOS[ROLE?.id]||[]).includes(m);
 /* Flujo del anticipo (refleja el proceso contable de Volver) */
 const FLUJO = ['Por verificar','Verificado','Aplicado en factura','Conciliado'];
 const PEND_CRUCE = ['Por verificar','Verificado'];
@@ -308,6 +325,7 @@ const ICON = {
   wallet:'<path d="M3 7a2 2 0 0 1 2-2h12v4"/><rect x="3" y="7" width="18" height="13" rx="1"/><path d="M16 13.5h2"/>',
   cake:'<path d="M4 21h16M5 21v-7h14v7M5 17c2 1 3-1 4.7 0s3 1 4.6 0 3-1 4.7 0M12 14V9M12 6.5V5"/>',
   spark:'<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M18 6l-2.5 2.5M8.5 15.5L6 18"/>',
+  shield:'<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
   arrow:'<path d="M5 12h14M13 6l6 6-6 6"/>', clip:'<path d="M20 11l-8.5 8.5a5 5 0 0 1-7-7L13 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L14 7"/>'
 };
 const ic = (n,st='') => `<svg viewBox="0 0 24 24" ${st?`style="${st}"`:''}>${ICON[n]||''}</svg>`;
@@ -317,7 +335,7 @@ const waLink = (tel, text) => `https://wa.me/57${digits(tel).slice(-10)}?text=${
 function dvNit(n){ const p=[3,7,13,17,19,23,29,37,41,43,47,53,59,67,71]; const d=digits(n).split('').reverse(); if(!d.length) return ''; let s=0; d.forEach((x,i)=>s+=Number(x)*p[i]); const r=s%11; return String(r>1?11-r:r); }
 let ROLE = null; try{ ROLE = JSON.parse(sessionStorage.getItem('volver-rol')||'null'); }catch(e){}
 const rol = () => ROLES.find(r=>r.id===ROLE?.id);
-const puedeMesas = () => ['reservas','admin'].includes(ROLE?.id); /* asignar mesas es interno: solo Reservas y Administración */
+const puedeMesas = () => ['reservas','admin','ti'].includes(ROLE?.id); /* asignar mesas es interno: solo Reservas y Administración */
 const quien = () => ROLE ? (ROLE.nombre || rol()?.nombre) : 'Sin usuario';
 
 /* ---------- datos en memoria (prueba) ---------- */
@@ -387,21 +405,46 @@ async function iniciarReal(){
   }).subscribe();
   CARGANDO=false; if(!location.hash || location.hash==='#') location.hash = rol()?.inicio||'inicio'; render();
 }
+/* Usuarios sin correo: internamente Supabase necesita un correo, así que cada
+   usuario se guarda como <usuario>@usuarios.volver.app (dominio interno, nunca recibe correos). */
+const DOMINIO_USUARIOS = 'usuarios.volver.app';
+const normUsuario = u => norm(u).trim().replace(/\s+/g,'.').replace(/[^a-z0-9._-]/g,'');
+const correoDe = u => { u = String(u||'').trim(); return u.includes('@') ? u.toLowerCase() : normUsuario(u)+'@'+DOMINIO_USUARIOS; };
+function claveTemporal(){ const a='ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789', s='#$%*+'; const r=new Uint32Array(10); crypto.getRandomValues(r);
+  let k=Array.from(r.slice(0,8),x=>a[x%a.length]).join(''); return 'Vlv'+k.slice(0,4)+s[r[8]%s.length]+k.slice(4)+(r[9]%10); }
+function viewCambiarClave(obligatorio){
+  return `<div class="roles"><div class="box" style="max-width:440px"><div class="word">volver</div><p>${obligatorio?'Crea tu contraseña personal':'Cambiar contraseña'}</p>
+    ${obligatorio?`<div class="banner info"><div class="bi">${ic('shield')}</div><div class="small">Estás usando una contraseña temporal. Crea una propia para continuar.</div></div>`:''}
+    <form class="card" id="clvForm" style="display:flex;flex-direction:column;gap:14px">
+      <label class="f"><span>Nueva contraseña</span><input class="in" id="clv1" type="password" autocomplete="new-password" required></label>
+      <label class="f"><span>Repítela</span><input class="in" id="clv2" type="password" autocomplete="new-password" required></label>
+      <p class="small muted" style="margin:0">Mínimo 8 caracteres, con letras y números.</p>
+      <button class="btn" type="submit">Guardar contraseña</button>${obligatorio?'':'<a href="#inicio" class="btn ghost">Cancelar</a>'}<div class="errmsg" id="clvErr"></div></form></div></div>`;
+}
+function bindCambiarClave(){
+  const f=$('#clvForm'); if(!f) return;
+  f.onsubmit = async e=>{ e.preventDefault(); const a=$('#clv1').value, b=$('#clv2').value;
+    if(a.length<8 || !/[a-zA-Z]/.test(a) || !/\d/.test(a)){ $('#clvErr').textContent='Mínimo 8 caracteres, con letras y números.'; return; }
+    if(a!==b){ $('#clvErr').textContent='Las contraseñas no coinciden.'; return; }
+    if(!REAL){ toast('Contraseña cambiada (demostración)'); go('inicio'); return; }
+    const {error} = await SB.auth.updateUser({password:a}); if(error){ $('#clvErr').textContent='No se pudo cambiar: '+error.message; return; }
+    await SB.rpc('marcar_clave_cambiada'); PERFIL.debe_cambiar=false; toast('Contraseña actualizada'); location.hash='inicio'; render(); };
+}
 function viewLogin(){
   if(CARGANDO) return `<div class="roles"><div class="box"><div class="word">volver</div><p>Cargando…</p></div></div>`;
   return `<div class="roles"><div class="box" style="max-width:420px"><div class="word">volver</div><p>Ingresa con tu usuario</p>
     ${ERROR_CARGA?`<div class="banner"><div class="bi">${ic('alert')}</div><div class="small">${esc(ERROR_CARGA)}</div></div>`:''}
     <form class="card" id="loginForm" style="display:flex;flex-direction:column;gap:14px">
-      <label class="f"><span>Correo</span><input class="in" id="lgMail" type="email" autocomplete="username" required></label>
+      <label class="f"><span>Usuario</span><input class="in" id="lgMail" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
       <label class="f"><span>Contraseña</span><input class="in" id="lgPass" type="password" autocomplete="current-password" required></label>
       <button class="btn" type="submit">Entrar</button><div class="errmsg" id="lgErr"></div></form>
-    <p class="small" style="font-family:var(--sans);font-size:13px">¿Olvidaste la contraseña? Pídele a Gerencia que te la restablezca.</p></div></div>`;
+    <p class="small" style="font-family:var(--sans);font-size:13px">¿Olvidaste la contraseña? Pídele a TI que te la restablezca.</p></div></div>`;
 }
 function bindLogin(){
   const f = $('#loginForm'); if(!f) return;
   f.onsubmit = async e=>{ e.preventDefault(); $('#lgErr').textContent='';
-    const {error} = await SB.auth.signInWithPassword({email:$('#lgMail').value.trim(), password:$('#lgPass').value});
-    if(error){ $('#lgErr').textContent = 'Correo o contraseña incorrectos.'; return; }
+    const {error} = await SB.auth.signInWithPassword({email:correoDe($('#lgMail').value), password:$('#lgPass').value});
+    if(error){ $('#lgErr').textContent = 'Usuario o contraseña incorrectos.'; return; }
     ERROR_CARGA=''; CARGANDO=true; render(); iniciarReal(); };
 }
 async function cerrarSesion(){ if(REAL){ await SB.auth.signOut(); location.hash=''; location.reload(); } }
@@ -509,9 +552,9 @@ const tagBono = b => ({Activo:'<span class="tag ok">Activo</span>',Redimido:'<sp
 const NAV_BASE = [
   ['inicio','Inicio','home'],['reservas','Reservas','cal'],['eventos','Eventos','spark'],['mesas','Mesas','table'],['caja','Caja','cash'],
   ['anticipos','Anticipos','coin'],['cartera','Cartera','wallet'],['bonos','Bonos','gift'],['clientes','Clientes','users'],['contabilidad','Contabilidad','book'],
-  ...(REAL?[['usuarios','Usuarios','users']]:[])
+  ['ti','TI','shield']
 ];
-const navItems = () => NAV_BASE.filter(([id])=> id!=='usuarios' || ROLE?.id==='admin');
+const navItems = () => NAV_BASE.filter(([id])=> puede(id));
 const route = () => (location.hash||'#inicio').slice(1) || 'inicio';
 let AFTER_NAV = null;
 window.addEventListener('hashchange', ()=>{ $('#modal').innerHTML=''; W=null; render(); window.scrollTo(0,0); if(AFTER_NAV){ const f=AFTER_NAV; AFTER_NAV=null; f(); } });
@@ -520,20 +563,22 @@ const go = r => { if(location.hash==='#'+r) render(); else location.hash = r; };
 let UI = {resFiltro:'hoy', resQ:'', antFiltro:'Por cruzar', antQ:'', cliQ:'', cajaQ:'', cajaSel:null, bonoFiltro:'Activo', bonoQ:'', cxFiltro:'Pendientes', cxQ:'', evFiltro:'Próximos', evQ:''};
 
 function render(){
-  const r = route();
+  let r = route();
   if(r==='registro'){ $('#root').innerHTML = viewRegistro(); bindRegistro(); return; }
   if(REAL && (!USER || !PERFIL)){ $('#root').innerHTML = viewLogin(); bindLogin(); return; }
   if(!ROLE){ $('#root').innerHTML = viewRoles(); return; }
+  if(REAL && PERFIL?.debe_cambiar){ $('#root').innerHTML = viewCambiarClave(true); bindCambiarClave(); return; }
+  if(!puede(r)){ r = 'inicio'; }
   const badges = {cartera:cxVencidas().length, anticipos:porCruzar().length, contabilidad:porVerificar().length+porAjustar().length+devoluciones().length+tercerosPorCrear().length};
   const NAV = navItems();
   const nav = NAV.map(([id,t,i])=>`<a href="#${id}" class="${r===id?'on':''}">${ic(i)}${t}${badges[id]?`<span class="badge">${badges[id]}</span>`:''}</a>`).join('');
   const tabItems = NAV.filter(([id])=>!['clientes','bonos'].includes(id));
   const tab = tabItems.map(([id,t,i])=>`<a href="#${id}" class="${r===id?'on':''}">${ic(i)}${t.slice(0,9)}${badges[id]?`<span class="badge">${badges[id]}</span>`:''}</a>`).join('');
-  const views = {inicio:viewInicio,reservas:viewReservas,mesas:viewMesas,caja:viewCaja,anticipos:viewAnticipos,eventos:viewEventos,cartera:viewCartera,bonos:viewBonos,clientes:viewClientes,contabilidad:viewContabilidad, usuarios:viewUsuarios};
+  const views = {inicio:viewInicio,reservas:viewReservas,mesas:viewMesas,caja:viewCaja,anticipos:viewAnticipos,eventos:viewEventos,cartera:viewCartera,bonos:viewBonos,clientes:viewClientes,contabilidad:viewContabilidad, ti:viewTI};
   $('#root').innerHTML = `<div class="app">
     <aside class="side"><div class="brand"><div class="word">volver</div><div class="sub">Reservas · Anticipos · Bonos</div></div>
       <nav class="nav">${nav}</nav>
-      <div class="who"><small>Usando el sistema</small>${esc(rol()?.nombre)}<br>${REAL?`${esc(ROLE.nombre)}<br><button data-act="salir">Cerrar sesión</button>`:`<button data-act="rol-cambiar">Cambiar de área</button>`}</div>
+      <div class="who"><small>Usando el sistema</small>${esc(rol()?.nombre)}<br>${REAL?`${esc(ROLE.nombre)}<br><button data-act="cambiar-clave">Cambiar contraseña</button> · <button data-act="salir">Cerrar sesión</button>`:`<button data-act="rol-cambiar">Cambiar de área</button>`}</div>
       <div class="foot">${REAL?'Restaurante Volver':'Versión de prueba'} · Soporte TI</div></aside>
     <main>${REAL?'':`<div class="demo-note">${ic('alert','width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2')}<span><b>Versión de prueba.</b> Los datos son de ejemplo y se reinician al recargar la página. Prueba todo sin miedo.</span><span class="spacer"></span><button class="btn sm ghost" data-act="rol-cambiar">Área: ${esc(rol()?.nombre)}</button></div>`}${(views[r]||viewInicio)()}</main>
     <nav class="tabbar">${tab}</nav></div>`;
@@ -543,7 +588,7 @@ function render(){
 /* =================== ROLES (pantalla de inicio) =================== */
 function viewRoles(){
   return `<div class="roles"><div class="box"><div class="word">volver</div><p>Huerta y cocina de montaña. ¿Desde qué área vas a trabajar?</p>
-  <div class="areas">${ROLES.map(r=>`<button class="area" data-rol="${r.id}"><div class="ic">${ic(r.ic)}</div><div class="t">${r.nombre}</div><div class="s">${r.d}</div><div class="mono muted" style="font-size:10px;margin-top:auto">${r.persona.toUpperCase()}</div></button>`).join('')}</div>
+  <div class="areas" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">${ROLES.map(r=>`<button class="area" data-rol="${r.id}"><div class="ic">${ic(r.ic)}</div><div class="t">${r.nombre}</div><div class="s">${r.d}</div><div class="mono muted" style="font-size:10px;margin-top:auto">${r.persona.toUpperCase()}</div></button>`).join('')}</div>
   <p class="small" style="font-family:var(--sans);font-size:13px">En la versión real cada persona entra con su usuario y contraseña; aquí solo eliges el área para probar.</p></div></div>`;
 }
 
@@ -559,7 +604,7 @@ function viewInicio(){
     ['caja','cash','Caja','Buscar cliente o bono antes de facturar', conAnt.length?`${conAnt.length} con anticipo hoy`:''],
     ['eventos','spark','Eventos','Tablero de eventos: valor, pagos y saldo', (()=>{const n=eventos().filter(r=>r.fecha>=today()&&r.estado!=='Cancelada'&&!total(antDeEvento(r))).length; return n?n+' sin anticipo':'';})()],
     ['contabilidad','book','Contabilidad','Verificar pagos, ajustes y terceros', (porVerificar().length+porAjustar().length)?`${porVerificar().length+porAjustar().length} pendientes`:''],
-  ].map(([r,i,t,s,c])=>`<button class="area" data-go="${r}"><div class="ic">${ic(i)}</div><div class="t">${t}</div><div class="s">${s}</div>${c?`<div class="cnt">${c}</div>`:''}</button>`).join('');
+  ].filter(([r])=>puede(r)).map(([r,i,t,s,c])=>`<button class="area" data-go="${r}"><div class="ic">${ic(i)}</div><div class="t">${t}</div><div class="s">${s}</div>${c?`<div class="cnt">${c}</div>`:''}</button>`).join('');
   const alertas = [
     ...conAnt.map(r=>({c:'pink',l:'Hoy',t:`${esc(nombreDe(r))} viene ${r.hora?'a las '+esc(r.hora):'hoy'} con ${money(total(cruzarDe(r.clienteId)))} de anticipo`,cid:r.clienteId,go:'caja'})),
     ...(cxVencidas().length?[{c:'pink',l:'Cartera',t:`${cxVencidas().length} cuenta(s) por cobrar vencida(s) · ${money(totalSaldo(cxVencidas()))}`,go:'cartera'}]:[]),
@@ -1085,7 +1130,7 @@ function viewBonos(){
   ${list.length?`<table class="tbl resp"><thead><tr><th>Código</th><th>Para</th><th>Tipo</th><th>Vendido / dado</th><th>Vence</th><th class="num">Valor</th><th>Estado</th></tr></thead><tbody>${list.map(b=>`<tr class="click" data-act="bono-ver" data-id="${b.id}"><td data-l="Código" class="mono">${esc(b.codigo)}</td><td data-l="Para">${esc(b.beneficiario||b.comprador)}</td><td data-l="Tipo">${b.tipo==='Cortesía'?'<span class="tag blue">Cortesía</span>':'<span class="tag">Vendido</span>'}</td><td data-l="Fecha">${fdate(b.fechaVenta)}</td><td data-l="Vence">${fdate(b.vence)}</td><td data-l="Valor" class="num">${money(b.valor)}</td><td data-l="Estado">${tagBono(b)}${b.redFactura?`<div class="mono muted" style="font-size:10px;margin-top:3px">${esc(b.redFactura)}</div>`:''}</td></tr>`).join('')}</tbody></table>`:'<div class="empty">No hay bonos en este filtro.</div>'}`;
 }
 function formBono(){
-  const esAdmin = ROLE.id==='admin';
+  const esAdmin = ['admin','ti'].includes(ROLE.id);
   window._bono = {tipo:'Vendido', sop:null};
   const draw = ()=>{
     const B = window._bono, cort = B.tipo==='Cortesía';
@@ -1189,20 +1234,99 @@ function viewContabilidad(){
     '4 · Devoluciones solicitadas', `Consignación al cliente; débito a la ${CUENTA_ANT} y crédito al banco.`, dv)}`;
 }
 
-/* =================== USUARIOS (solo Gerencia, modo real) =================== */
-let USUARIOS = null;
-function viewUsuarios(){
-  if(ROLE.id!=='admin') return `<div class="empty">Solo Gerencia / Administración administra los usuarios.</div>`;
-  if(!USUARIOS){ SB.from('perfiles').select('*').order('nombre').then(({data})=>{ USUARIOS=data||[]; render(); }); return '<div class="empty">Cargando usuarios…</div>'; }
-  return `<div class="head"><div><div class="eyebrow">Gerencia</div><h1>Usuarios y roles</h1></div></div>
-  <p class="lead">Cada persona entra con su correo. Aquí defines su área y si está activa. Para crear un usuario nuevo sigue el instructivo (se crea en Supabase y aparece aquí).</p>
-  <table class="tbl resp"><thead><tr><th>Nombre</th><th>Área</th><th>Activo</th><th></th></tr></thead><tbody>${USUARIOS.map(u=>`<tr><td data-l="Nombre"><input class="in" id="un_${u.user_id}" value="${esc(u.nombre)}"></td><td data-l="Área"><select class="in" id="ur_${u.user_id}">${ROLES.map(r=>`<option value="${r.id}" ${r.id===u.rol?'selected':''}>${r.nombre}</option>`).join('')}</select></td><td data-l="Activo"><input type="checkbox" id="ua_${u.user_id}" ${u.activo?'checked':''} style="width:22px;height:22px"></td><td class="num"><button class="btn sm" data-act="usr-save" data-id="${u.user_id}">Guardar</button></td></tr>`).join('')}</tbody></table>`;
+/* =================== TI · USUARIOS (solo Administrador TI) =================== */
+/* En modo real todo pasa por la función segura "usuarios" de Supabase (Edge Function),
+   que es la única que puede crear usuarios y cambiar contraseñas. */
+let USUARIOS = null, USR_CLAVE = null;
+const DEMO_USUARIOS = [
+  {user_id:'d1',usuario:'administrador',nombre:'Administrador',rol:'ti',activo:true,debe_cambiar:false},
+  {user_id:'d2',usuario:'gerencia',nombre:'Gerencia',rol:'admin',activo:true,debe_cambiar:false},
+  {user_id:'d3',usuario:'reservas',nombre:'Reservas',rol:'reservas',activo:true,debe_cambiar:true},
+  {user_id:'d4',usuario:'caja1',nombre:'Caja 1',rol:'caja',activo:true,debe_cambiar:false},
+  {user_id:'d5',usuario:'contabilidad',nombre:'Contabilidad',rol:'tesoreria',activo:false,debe_cambiar:false},
+];
+async function apiUsuarios(accion, datos={}){
+  if(!REAL) return demoUsuarios(accion, datos);
+  const {data, error} = await SB.functions.invoke('usuarios', {body:{accion, ...datos}});
+  if(error){ let m=error.message; try{ m=(await error.context.json()).error||m; }catch(e){} throw new Error(m); }
+  if(data?.error) throw new Error(data.error);
+  return data;
 }
-async function guardarUsuario(uidv){
-  const d = {nombre:$('#un_'+uidv).value.trim(), rol:$('#ur_'+uidv).value, activo:$('#ua_'+uidv).checked};
-  const {error} = await SB.from('perfiles').update(d).eq('user_id',uidv);
-  if(error){ toast('No se pudo guardar: '+error.message); return; }
-  USUARIOS = USUARIOS.map(u=>u.user_id===uidv?{...u,...d}:u); toast('Usuario actualizado');
+function demoUsuarios(accion, d){
+  if(accion==='listar') return {usuarios: DEMO_USUARIOS};
+  if(accion==='crear'){ if(DEMO_USUARIOS.some(u=>u.usuario===d.usuario)) throw new Error('Ese usuario ya existe'); DEMO_USUARIOS.push({user_id:uid('u'),usuario:d.usuario,nombre:d.nombre,rol:d.rol,activo:true,debe_cambiar:true}); return {ok:true}; }
+  const u = DEMO_USUARIOS.find(x=>x.user_id===d.user_id);
+  if(accion==='actualizar') Object.assign(u,{nombre:d.nombre,rol:d.rol});
+  if(accion==='activo') u.activo=d.activo;
+  if(accion==='clave') u.debe_cambiar=true;
+  return {ok:true};
+}
+function cargarUsuarios(){ apiUsuarios('listar').then(r=>{ USUARIOS=r.usuarios||[]; render(); }).catch(e=>{ USUARIOS=[]; toast('No se pudieron cargar los usuarios: '+e.message); render(); }); }
+const rolDe = id => ROLES.find(r=>r.id===id);
+const manejaHTML = rol => `<div class="small muted" style="margin-top:4px">${(MODULOS[rol]||[]).map(m=>NOMBRE_MOD[m]).join(' · ')}</div>${PERMISOS_EXTRA[rol]?`<div class="small" style="margin-top:2px">${esc(PERMISOS_EXTRA[rol])}</div>`:''}`;
+function viewTI(){
+  if(!USUARIOS){ cargarUsuarios(); return '<div class="empty">Cargando usuarios…</div>'; }
+  const act = USUARIOS.filter(u=>u.activo).length;
+  return `<div class="head"><div><div class="eyebrow">TI · Soporte TI</div><h1>Usuarios</h1></div><button class="btn" data-act="usr-nuevo">${ic('plus')}Crear usuario</button></div>
+  <p class="lead">Cada persona entra con su <b>usuario y contraseña</b>, sin correo. Al crearla, el sistema le da una contraseña temporal que debe cambiar la primera vez que entre.</p>
+  <div class="grid g4" style="margin-bottom:18px">
+    <div class="kpi" style="cursor:default"><h3>Usuarios activos</h3><div class="n">${act}</div><div class="d">de ${USUARIOS.length} creados</div></div>
+    ${['reservas','caja','tesoreria'].map(r=>`<div class="kpi" style="cursor:default"><h3>${esc(rolDe(r).nombre)}</h3><div class="n">${USUARIOS.filter(u=>u.rol===r&&u.activo).length}</div><div class="d">usuario(s) activo(s)</div></div>`).join('')}</div>
+  <table class="tbl resp"><thead><tr><th>Usuario</th><th>Nombre</th><th>Rol · qué maneja</th><th>Estado</th><th></th></tr></thead><tbody>
+  ${USUARIOS.sort((a,b)=>a.usuario.localeCompare(b.usuario)).map(u=>`<tr><td data-l="Usuario" class="mono" style="font-size:13px">${esc(u.usuario)}</td><td data-l="Nombre">${esc(u.nombre)}</td>
+    <td data-l="Rol"><span class="tag olive">${esc(rolDe(u.rol)?.nombre||u.rol)}</span>${manejaHTML(u.rol)}</td>
+    <td data-l="Estado">${u.activo?'<span class="tag ok">Activo</span>':'<span class="tag">Desactivado</span>'}${u.debe_cambiar?'<div class="small muted" style="margin-top:4px">Contraseña temporal</div>':''}</td>
+    <td class="num"><button class="btn sm ghost" data-act="usr-editar" data-id="${u.user_id}">Editar</button></td></tr>`).join('')}</tbody></table>`;
+}
+function selectorRol(sel){
+  return `<div class="rolpick">${ROLES.map(r=>`<label class="rolopt ${r.id===sel?'on':''}"><input type="radio" name="uRol" value="${r.id}" ${r.id===sel?'checked':''}><div><b>${esc(r.nombre)}</b>${manejaHTML(r.id)}</div></label>`).join('')}</div>`;
+}
+function bindSelectorRol(){ document.querySelectorAll('.rolopt input').forEach(i=>i.onchange=()=>document.querySelectorAll('.rolopt').forEach(l=>l.classList.toggle('on', l.querySelector('input').checked))); }
+function formUsuario(){
+  modal('Crear usuario','Sin correo: entra con usuario y contraseña', `<div class="fgrid">
+    <label class="f"><span>Usuario para entrar <b>*</b></span><input class="in" id="uUsr" autocapitalize="none" spellcheck="false" placeholder="caja1, reservas, contabilidad"></label>
+    <label class="f"><span>Nombre o cargo <b>*</b></span><input class="in" id="uNom" placeholder="Caja 1, Reservas…"></label>
+    <div class="full"><label class="f"><span>Rol · qué va a manejar <b>*</b></span></label>${selectorRol('caja')}</div>
+    <div class="full errmsg" id="uErr"></div></div>`, `<button class="btn" data-act="usr-crear">${ic('check')}Crear usuario</button>`);
+  $('#uUsr').oninput = ()=>{ const v=normUsuario($('#uUsr').value); if(v!==$('#uUsr').value) $('#uUsr').value=v; };
+  bindSelectorRol();
+}
+async function crearUsuario(){
+  const usuario=normUsuario($('#uUsr').value), nombre=$('#uNom').value.trim(), rol=document.querySelector('input[name="uRol"]:checked')?.value;
+  if(usuario.length<3){ $('#uErr').textContent='El usuario debe tener mínimo 3 letras o números.'; return; }
+  if(nombre.length<2){ $('#uErr').textContent='Escribe el nombre o cargo.'; return; }
+  const clave = claveTemporal();
+  try{ await apiUsuarios('crear',{usuario,nombre,rol,clave}); }catch(e){ $('#uErr').textContent=e.message; return; }
+  USUARIOS=null; mostrarClave(usuario, nombre, rol, clave, true);
+}
+function mostrarClave(usuario, nombre, rol, clave, nuevo){
+  const txt = `Usuario: ${usuario}\nContraseña temporal: ${clave}\nRol: ${rolDe(rol)?.nombre}\nEntrar en: ${location.origin+location.pathname}\nAl entrar te pedirá crear tu propia contraseña.`;
+  modal(nuevo?'Usuario creado':'Contraseña restablecida', nombre, `<div class="banner ok"><div class="bi">${ic('check')}</div><div><div class="bt">${nuevo?'Listo, ya puede entrar':'Nueva contraseña temporal'}</div><div class="small">Esta contraseña se muestra <b>una sola vez</b>. Entrégasela a la persona; al entrar deberá crear la suya.</div></div></div>
+    <div class="kv">${[['Usuario',usuario],['Contraseña temporal',clave],['Rol',rolDe(rol)?.nombre]].map(([k,v])=>`<div class="k">${k}</div><div class="mono" style="font-size:14px">${esc(v)}</div><div><button class="copy" data-copy="${esc(v)}">Copiar</button></div>`).join('')}</div>
+    <div style="margin-top:8px">${manejaHTML(rol)}</div>`, `<button class="btn ghost" data-copy="${esc(txt)}">Copiar todo para enviar</button><button class="btn" data-act="close">Listo</button>`);
+  render();
+}
+function editarUsuario(id){
+  const u = USUARIOS.find(x=>x.user_id===id), yo = REAL && USER?.id===id;
+  modal('Editar usuario', u.usuario, `<div class="fgrid">
+    <label class="f"><span>Usuario</span><input class="in" value="${esc(u.usuario)}" disabled></label>
+    <label class="f"><span>Nombre o cargo</span><input class="in" id="uNom" value="${esc(u.nombre)}"></label>
+    <div class="full"><label class="f"><span>Rol · qué maneja</span></label>${selectorRol(u.rol)}</div>
+    <div class="full errmsg" id="uErr"></div></div>
+    ${yo?'<p class="small muted">Este es tu propio usuario: no puedes desactivarlo ni quitarte el rol de TI desde aquí.</p>':''}`,
+    `${yo?'':`<button class="btn ghost" data-act="usr-activo" data-id="${id}">${u.activo?'Desactivar':'Activar'}</button>`}<button class="btn ghost" data-act="usr-clave" data-id="${id}">Restablecer contraseña</button><span class="spacer"></span><button class="btn" data-act="usr-guardar" data-id="${id}">${ic('check')}Guardar</button>`);
+  bindSelectorRol();
+}
+async function accionUsuario(accion, id){
+  const u = USUARIOS.find(x=>x.user_id===id);
+  try{
+    if(accion==='guardar'){ const rol=document.querySelector('input[name="uRol"]:checked')?.value, nombre=$('#uNom').value.trim();
+      if(REAL && USER?.id===id && rol!=='ti'){ $('#uErr').textContent='No puedes quitarte tu propio rol de TI.'; return; }
+      await apiUsuarios('actualizar',{user_id:id,nombre,rol}); toast('Usuario actualizado'); closeModal(); }
+    if(accion==='activo'){ await apiUsuarios('activo',{user_id:id,activo:!u.activo}); toast(u.activo?'Usuario desactivado: ya no puede entrar':'Usuario activado'); closeModal(); }
+    if(accion==='clave'){ const clave=claveTemporal(); await apiUsuarios('clave',{user_id:id,clave}); USUARIOS=null; mostrarClave(u.usuario,u.nombre,u.rol,clave,false); return; }
+    USUARIOS=null; render();
+  }catch(e){ toast(e.message); }
 }
 
 /* =================== FORMULARIO DEL CLIENTE =================== */
@@ -1261,7 +1385,7 @@ const selCaja = cid => { UI.cajaSel=cid; UI.cajaQ=S.clientes[cid]?.nombre||''; c
 document.addEventListener('click', e=>{
   const el = e.target.closest('[data-go],[data-act],[data-res],[data-mesa],[data-resf],[data-antf],[data-antf2],[data-bonof],[data-cxf],[data-evf],[data-cajasel],[data-copy],[data-rol]');
   if(!el) return;
-  if(el.dataset.rol){ const r=ROLES.find(x=>x.id===el.dataset.rol); ROLE={id:r.id,nombre:r.id==='reservas'?'Reservas':r.id==='tesoreria'?'Tesorería':r.id==='admin'?'Gerencia':'Caja'}; try{sessionStorage.setItem('volver-rol',JSON.stringify(ROLE));}catch(x){} location.hash=r.inicio; render(); return; }
+  if(el.dataset.rol){ const r=ROLES.find(x=>x.id===el.dataset.rol); ROLE={id:r.id,nombre:r.id==='reservas'?'Reservas':r.id==='tesoreria'?'Tesorería':r.id==='admin'?'Gerencia':r.id==='ti'?'Administrador':'Caja'}; try{sessionStorage.setItem('volver-rol',JSON.stringify(ROLE));}catch(x){} location.hash=r.inicio; render(); return; }
   if(el.dataset.copy!==undefined){ copyText(el.dataset.copy); return; }
   if(el.dataset.resf){ UI.resFiltro=el.dataset.resf; render(); return; }
   if(el.dataset.antf){ UI.antFiltro=el.dataset.antf; render(); return; }
@@ -1278,7 +1402,13 @@ document.addEventListener('click', e=>{
   switch(a){
     case 'close': closeModal(); break;
     case 'salir': cerrarSesion(); break;
-    case 'usr-save': guardarUsuario(id); break;
+    case 'usr-nuevo': formUsuario(); break;
+    case 'usr-crear': crearUsuario(); break;
+    case 'usr-editar': editarUsuario(id); break;
+    case 'usr-guardar': accionUsuario('guardar',id); break;
+    case 'usr-activo': accionUsuario('activo',id); break;
+    case 'usr-clave': accionUsuario('clave',id); break;
+    case 'cambiar-clave': $('#root').innerHTML = viewCambiarClave(false); bindCambiarClave(); break;
     case 'rol-cambiar': ROLE=null; try{sessionStorage.removeItem('volver-rol');}catch(x){} closeModal(); render(); break;
     case 'res-new': newWizard(); break;
     case 'w-next': if(validStep()){ W.step++; renderWizard(); $('#modal .scrim').scrollTop=0; } else renderWizard(); break;

@@ -32,7 +32,12 @@ Pantalla **Contabilidad**, en orden:
 - **Anticipos → pestaña Eventos**: solo anticipos de eventos.
 - **Cartera**: cuentas por cobrar, pagos parciales, recordatorios.
 
+## Administrador (TI)
+- Sección **TI → Usuarios**: lista de usuarios con su rol y los módulos que maneja.
+- **Crear usuario**: escribir el usuario para entrar (ej. `caja1`), el nombre o cargo y elegir el rol; el sistema muestra lo que va a manejar. Al crear aparece la **contraseña temporal una sola vez**: copiarla y entregarla. La persona debe cambiarla al entrar.
+- **Editar**: cambiar nombre o rol, **desactivar** (ya no puede entrar) o **restablecer contraseña**.
+- Cualquier usuario puede cambiar su propia contraseña desde el menú lateral → "Cambiar contraseña".
+
 ## Gerencia / Administración
 - **Eventos**: tablero con valor, pagado, saldo y estado de cada evento; alertas de eventos sin anticipo y cartera vencida.
 - **Bonos**: crear cortesías (solo esta área).
-- **Usuarios**: activar/desactivar personas y cambiar su área.

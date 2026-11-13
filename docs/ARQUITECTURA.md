@@ -22,18 +22,25 @@ Supabase (cuenta de Volver)
 
 ## Roles
 
-| Rol (`perfiles.rol`) | Área | Puede |
-|---|---|---|
-| `reservas` | Reservas | Todo lo operativo; asignar mesas |
-| `caja` | Caja | Operativo; no asigna mesas a reservas |
-| `tesoreria` | Tesorería y contabilidad | Operativo; ve la auditoría |
-| `admin` | Gerencia / Administración | Todo; cortesías; borrar registros; administrar usuarios; ve la auditoría |
+Los usuarios **no usan correo**: entran con usuario y contraseña. Supabase Auth los guarda como `usuario@usuarios.volver.app`. Solo el rol **TI** los crea y administra, a través de la Edge Function `usuarios` (la única con la llave de servicio).
+
+| Rol (`perfiles.rol`) | Área | Módulos que ve | Además puede |
+|---|---|---|---|
+| `reservas` | Reservas | Inicio, Reservas, Eventos, Mesas, Anticipos, Bonos, Clientes | Asignar mesas |
+| `caja` | Caja | Inicio, Caja, Mesas, Anticipos, Bonos, Clientes | Aplicar anticipos y redimir bonos |
+| `tesoreria` | Tesorería y contabilidad | Inicio, Contabilidad, Anticipos, Cartera, Eventos, Bonos, Clientes | Verificar pagos, ajustes, terceros; ver auditoría |
+| `admin` | Gerencia / Administración | Todos menos TI | Cortesías, borrar registros, ver auditoría |
+| `ti` | Administrador (TI) | Todos + **TI** | Crear, editar, desactivar usuarios y restablecer contraseñas |
+
+- Contraseña temporal al crear o restablecer; el sistema obliga a cambiarla al entrar.
+- Desactivar un usuario lo bloquea en Supabase Auth (no puede iniciar sesión).
 
 ## Seguridad
 
 - **RLS (Row Level Security)** en todas las tablas: sin usuario activo no se lee ni se escribe nada.
 - La llave de `config.js` es la **anon/publishable key**: es pública por diseño. La **service_role key nunca** va en el código.
-- Borrar registros: solo Gerencia. Cortesías: solo Gerencia (también validado en la base de datos).
+- Borrar registros: solo Gerencia y TI. Cortesías: solo Gerencia y TI (también validado en la base de datos).
+- Los perfiles no se pueden modificar desde la app con la llave pública: solo la Edge Function `usuarios`, que verifica que quien llama sea TI activo.
 - **Auditoría**: cada creación, cambio o borrado queda en `auditoria` con usuario, fecha, valor anterior y nuevo.
 - **Soportes de pago** en bucket **privado**; se ven con enlaces firmados que vencen en 15 minutos.
 - **Formulario público**: el cliente solo ejecuta `registrar_cliente()`, que valida y limpia los campos. No puede leer datos.

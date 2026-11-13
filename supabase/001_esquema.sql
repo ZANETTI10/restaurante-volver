@@ -18,13 +18,15 @@
 
 -- ---------- 1. Perfiles y roles ----------
 create table if not exists public.perfiles (
-  user_id    uuid primary key references auth.users(id) on delete cascade,
-  nombre     text not null,
-  rol        text not null check (rol in ('reservas','caja','tesoreria','admin')),
-  activo     boolean not null default true,
-  creado     timestamptz not null default now()
+  user_id       uuid primary key references auth.users(id) on delete cascade,
+  usuario       text not null unique check (usuario ~ '^[a-z0-9._-]{3,40}$'),
+  nombre        text not null,
+  rol           text not null check (rol in ('reservas','caja','tesoreria','admin','ti')),
+  activo        boolean not null default true,
+  debe_cambiar  boolean not null default true,
+  creado        timestamptz not null default now()
 );
-comment on table public.perfiles is 'Usuarios del sistema y su área: reservas, caja, tesoreria (tesorería y contabilidad), admin (gerencia / administración).';
+comment on table public.perfiles is 'Usuarios del sistema (sin correo: entran con usuario y contraseña). Roles: reservas, caja, tesoreria, admin (gerencia), ti (administrador del sistema). Se administran solo con la Edge Function "usuarios".';
 
 create or replace function public.es_activo() returns boolean
 language sql stable security definer set search_path = public as $$
@@ -39,10 +41,17 @@ $$;
 alter table public.perfiles enable row level security;
 drop policy if exists perfiles_ver on public.perfiles;
 create policy perfiles_ver on public.perfiles for select
-  using (user_id = auth.uid() or public.rol_actual() = 'admin');
-drop policy if exists perfiles_admin on public.perfiles;
-create policy perfiles_admin on public.perfiles for update
-  using (public.rol_actual() = 'admin') with check (public.rol_actual() = 'admin');
+  using (user_id = auth.uid() or public.rol_actual() in ('ti','admin'));
+-- No hay políticas de insert/update/delete: los perfiles solo se crean y cambian
+-- desde la Edge Function "usuarios" (service role), que valida que quien llama sea TI.
+
+-- El propio usuario marca que ya cambió su contraseña temporal
+create or replace function public.marcar_clave_cambiada() returns void
+language sql security definer set search_path = public as $$
+  update public.perfiles set debe_cambiar = false where user_id = auth.uid();
+$$;
+revoke all on function public.marcar_clave_cambiada() from public;
+grant execute on function public.marcar_clave_cambiada() to authenticated;
 
 -- ---------- 2. Tablas de la operación ----------
 do $$
@@ -65,7 +74,7 @@ begin
       drop policy if exists %1$s_editar on public.%1$I;
       create policy %1$s_editar on public.%1$I for update using (public.es_activo()) with check (public.es_activo());
       drop policy if exists %1$s_borrar on public.%1$I;
-      create policy %1$s_borrar on public.%1$I for delete using (public.rol_actual() = 'admin');
+      create policy %1$s_borrar on public.%1$I for delete using (public.rol_actual() in ('admin','ti'));
     $f$, t);
   end loop;
 end $$;
@@ -73,7 +82,7 @@ end $$;
 -- Las cortesías (bonos regalados) solo las crea Gerencia / Administración
 drop policy if exists bonos_crear on public.bonos;
 create policy bonos_crear on public.bonos for insert
-  with check (public.es_activo() and (coalesce(data->>'tipo','') <> 'Cortesía' or public.rol_actual() = 'admin'));
+  with check (public.es_activo() and (coalesce(data->>'tipo','') <> 'Cortesía' or public.rol_actual() in ('admin','ti')));
 
 -- ---------- 3. Auditoría (trazabilidad) ----------
 create table if not exists public.auditoria (
@@ -89,7 +98,7 @@ create table if not exists public.auditoria (
 alter table public.auditoria enable row level security;
 drop policy if exists auditoria_ver on public.auditoria;
 create policy auditoria_ver on public.auditoria for select
-  using (public.rol_actual() in ('admin','tesoreria'));
+  using (public.rol_actual() in ('admin','tesoreria','ti'));
 
 create or replace function public.tg_auditar() returns trigger
 language plpgsql security definer set search_path = public as $$
@@ -168,7 +177,7 @@ create policy soportes_actualizar on storage.objects for update
   using (bucket_id = 'soportes' and public.es_activo());
 drop policy if exists soportes_borrar on storage.objects;
 create policy soportes_borrar on storage.objects for delete
-  using (bucket_id = 'soportes' and public.rol_actual() = 'admin');
+  using (bucket_id = 'soportes' and public.rol_actual() in ('admin','ti'));
 
 -- ---------- 6. Tiempo real (todas las pantallas se actualizan solas) ----------
 do $$
@@ -217,9 +226,9 @@ left join public.clientes c on c.id = x.data->>'clienteId';
 
 -- =====================================================================
 --  Después de correr este archivo:
---  1) Authentication → Users → "Add user" (correo + contraseña) por cada persona.
---  2) Crear su perfil (cambia el correo, nombre y rol):
---     insert into public.perfiles(user_id, nombre, rol)
---     select id, 'Gerencia', 'admin' from auth.users where email = 'correo@volver.com';
+--  1) Desplegar la Edge Function supabase/functions/usuarios (ver instructivo).
+--  2) Crear el primer usuario (Administrador TI) con la acción "inicial" de esa
+--     función: solo funciona mientras no exista ningún perfil.
+--  3) Los demás usuarios se crean desde la app: sección TI → Crear usuario.
 --  Ver docs/INSTRUCTIVO-MONTAJE.md
 -- =====================================================================

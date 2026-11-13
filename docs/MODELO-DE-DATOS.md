@@ -64,7 +64,7 @@ Cada tabla operativa tiene: `id` (texto), `data` (JSON con los campos de abajo),
 Estado del salón en vivo: `{estado: libre/ocupada/cuenta, reservaId, desde}`. La distribución de mesas (35 adentro, 1 terraza, 6 afuera, capacidades) está configurada en `index.html` → `ZONAS`.
 
 ## perfiles
-`user_id`, `nombre`, `rol` (reservas, caja, tesoreria, admin), `activo`.
+`user_id`, `usuario` (para entrar, sin correo), `nombre`, `rol` (reservas, caja, tesoreria, admin, ti), `activo`, `debe_cambiar` (contraseña temporal pendiente de cambio).
 
 ## auditoria
 `tabla`, `registro_id`, `accion` (INSERT/UPDATE/DELETE), `usuario`, `antes`, `despues`, `fecha`.

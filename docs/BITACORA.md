@@ -57,3 +57,18 @@ Registro cronológico de cada paso, decisión y cambio. Se actualiza en cada ent
 - **GitHub Pages activo**: https://zanetti10.github.io/restaurante-volver/ (abre en modo demostración hasta configurar Supabase).
 - Descripción del repositorio corregida y enlace al sitio agregado.
 - Pendiente: cuenta Supabase de Volver (la crea Volver con su correo e invita a Soporte TI) → Soporte TI crea el proyecto, aplica `001_esquema.sql`, crea usuarios y llena `config.js`.
+
+## 2026-11-12 (noche) · Sección TI y usuarios sin correo
+
+**Pedido de Soporte TI:** crear dentro del programa una parte llamada **TI** para crear y administrar usuarios **sin correo**, solo con usuario y contraseña; que cada usuario muestre qué rol tiene y qué va a manejar. El usuario de Soporte TI debe ser **Administrador**.
+
+**Hecho:**
+- Nuevo rol `ti` (**Administrador (TI)**): acceso total y sección **TI**.
+- Cada rol ve solo sus módulos (menú y acceso filtrados). Tabla de módulos por rol en `docs/ARQUITECTURA.md`.
+- Ingreso con **usuario** (internamente `usuario@usuarios.volver.app`).
+- Pantalla **TI → Usuarios**: crear (con contraseña temporal generada y mostrada una vez), editar rol/nombre, desactivar (bloquea el ingreso), restablecer contraseña. Al elegir el rol se ve qué maneja.
+- Cambio de contraseña **obligatorio** al primer ingreso y opción "Cambiar contraseña" para todos.
+- Nueva Edge Function `supabase/functions/usuarios` (única con llave de servicio; valida que quien llama sea TI; registra en auditoría).
+- Esquema: `perfiles.usuario`, `perfiles.debe_cambiar`, rol `ti`, función `marcar_clave_cambiada()`; perfiles ya no se editan con la llave pública.
+- Primer usuario: `administrador` (rol TI). Su contraseña temporal se entregó por chat privado, no está en el repositorio.
+- Probado en demostración y en modo real simulado (login por usuario, cambio obligatorio, crear usuario, restablecer).
